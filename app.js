@@ -24,7 +24,8 @@ const state = {
     maxWidth: null,
     maxHeight: null
   },
-  avifSupported: false
+  avifSupported: false,
+  draining: false
 };
 
 const els = {
@@ -133,7 +134,11 @@ function bindUI() {
     state.settings.maxHeight = Number.isFinite(v) && v > 0 ? v : null;
   });
 
-  els.reprocess.addEventListener('click', () => processAll());
+  els.reprocess.addEventListener('click', () => {
+    markAllPendingNonBusy();
+    render();
+    processAll();
+  });
   els.downloadAll.addEventListener('click', downloadAll);
   els.clearAll.addEventListener('click', () => {
     if (!state.files.length) return;
@@ -149,23 +154,42 @@ function bindUI() {
   });
   bindCompareHandle();
 
-  // Allow paste from clipboard anywhere on the page.
+  // Allow paste from clipboard anywhere on the page. Chrome/Firefox expose the
+  // pasted image via `clipboardData.files`; Safari goes through `items`.
   window.addEventListener('paste', e => {
-    const items = Array.from(e.clipboardData?.files || []).filter(f => f.type.startsWith('image/'));
-    if (items.length) addFiles(items);
+    const pasted = [];
+    for (const f of e.clipboardData?.files || []) {
+      if (f.type.startsWith('image/')) pasted.push(f);
+    }
+    if (!pasted.length) {
+      for (const item of e.clipboardData?.items || []) {
+        if (item.kind === 'file' && item.type.startsWith('image/')) {
+          const f = item.getAsFile();
+          if (f) pasted.push(f);
+        }
+      }
+    }
+    if (pasted.length) addFiles(pasted);
   });
 }
 
 function updateQualityFieldVisibility() {
   const fmt = state.settings.format;
-  const isLossless = fmt === 'image/png';
-  els.qualityField.style.opacity = isLossless ? 0.35 : 1;
-  els.quality.disabled = isLossless;
+  const alwaysLossless = fmt === 'image/png';
+  // In 'auto' mode the slider still applies to JPEG/WebP/AVIF inputs, so keep
+  // it enabled but dim it to signal that it has no effect on PNG sources.
+  els.qualityField.style.opacity = alwaysLossless ? 0.35 : 1;
+  els.quality.disabled = alwaysLossless;
+}
+
+function sameFile(a, b) {
+  return a.name === b.name && a.size === b.size && a.lastModified === b.lastModified;
 }
 
 async function addFiles(files) {
   for (const file of files) {
     if (!file.type.startsWith('image/')) continue;
+    if (state.files.some(f => sameFile(f.file, file))) continue;
     const id = crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2);
     const entry = {
       id,
@@ -193,9 +217,24 @@ async function addFiles(files) {
 }
 
 async function processAll() {
-  const pending = state.files.filter(f => f.status !== 'busy');
-  for (const entry of pending) {
-    await processOne(entry);
+  if (state.draining) return;
+  state.draining = true;
+  try {
+    while (true) {
+      const next = state.files.find(f => f.status === 'pending');
+      if (!next) break;
+      await processOne(next);
+    }
+  } finally {
+    state.draining = false;
+    renderSummary();
+  }
+}
+
+function markAllPendingNonBusy() {
+  for (const entry of state.files) {
+    if (entry.status === 'busy') continue;
+    entry.status = 'pending';
   }
 }
 
@@ -469,12 +508,19 @@ function bindCompareHandle() {
   window.addEventListener('mousemove', e => move(e.clientX));
   window.addEventListener('mouseup', stopDrag);
 
-  els.compareHandle.addEventListener('touchstart', e => { startDrag(); e.preventDefault(); }, { passive: false });
+  els.compareArea.addEventListener('touchstart', e => {
+    if (!e.touches.length) return;
+    const rect = els.compareArea.getBoundingClientRect();
+    setHandlePosition(((e.touches[0].clientX - rect.left) / rect.width) * 100);
+    startDrag();
+    e.preventDefault();
+  }, { passive: false });
   window.addEventListener('touchmove', e => {
-    if (!dragging) return;
+    if (!dragging || !e.touches.length) return;
     move(e.touches[0].clientX);
   }, { passive: true });
   window.addEventListener('touchend', stopDrag);
+  window.addEventListener('touchcancel', stopDrag);
 }
 
 function setHandlePosition(pct) {
