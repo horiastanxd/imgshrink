@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>imgshrink - compress images in your browser, nothing uploaded</title>
+<meta name="description" content="Compress JPEG, PNG, WebP and AVIF images right in your browser. No upload, no sign-up, no limits. Images never leave your device.">
+<meta property="og:title" content="imgshrink">
+<meta property="og:description" content="Compress images in your browser. Nothing is uploaded.">
+<meta property="og:type" content="website">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath fill='%237dd3fc' d='M2 3h12v10H2zm1 1v8h10V4zm2 2h2v2H5zm4 2h3v3H9z'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<header>
+  <div class="wrap">
+    <div class="brand">
+      <h1>imgshrink</h1>
+      <span class="privacy-pill" title="All processing happens in your browser. No network requests are made with your images.">
+        <span class="dot"></span> local only
+      </span>
+    </div>
+    <p>Drop images, get smaller files. Everything runs in this tab - no upload, no account, no limits.</p>
+  </div>
+</header>
+
+<main class="wrap">
+  <div id="drop" class="drop" tabindex="0">
+    <div class="drop-inner">
+      <svg viewBox="0 0 24 24" width="32" height="32" aria-hidden="true">
+        <path fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"
+          d="M12 16V4m0 0l-4 4m4-4l4 4M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2"/>
+      </svg>
+      <p><strong>Drop images here</strong> or <button type="button" id="pickBtn" class="link">choose files</button></p>
+      <p class="hint">JPEG, PNG, WebP, AVIF. Up to a few hundred at a time.</p>
+    </div>
+    <input type="file" id="fileInput" accept="image/*" multiple hidden>
+  </div>
+
+  <section class="settings" id="settings" hidden>
+    <div class="row">
+      <label>Format
+        <select id="format">
+          <option value="auto">Keep original</option>
+          <option value="image/jpeg">JPEG</option>
+          <option value="image/png">PNG</option>
+          <option value="image/webp">WebP</option>
+          <option value="image/avif" id="avifOption">AVIF</option>
+        </select>
+      </label>
+      <label class="quality-field">Quality <span id="qualityLabel">82</span>
+        <input type="range" id="quality" min="1" max="100" value="82">
+      </label>
+      <label>Max width
+        <input type="number" id="maxWidth" min="16" step="1" placeholder="unchanged">
+      </label>
+      <label>Max height
+        <input type="number" id="maxHeight" min="16" step="1" placeholder="unchanged">
+      </label>
+    </div>
+    <div class="row actions">
+      <div class="summary" id="summary"></div>
+      <button type="button" id="reprocess">Apply to all</button>
+      <button type="button" id="downloadAll">Download all</button>
+      <button type="button" id="clearAll" class="ghost">Clear</button>
+    </div>
+  </section>
+
+  <ol id="files" class="files"></ol>
+</main>
+
+<dialog id="compareDialog">
+  <div class="dialog-head">
+    <span id="dialogName"></span>
+    <button type="button" id="dialogClose" aria-label="Close">&times;</button>
+  </div>
+  <div class="compare" id="compareArea">
+    <img id="compareOriginal" alt="original">
+    <img id="compareCompressed" class="after" alt="compressed">
+    <div class="compare-handle" id="compareHandle"><span></span></div>
+    <div class="compare-label left">original</div>
+    <div class="compare-label right">compressed</div>
+  </div>
+</dialog>
+
+<footer class="wrap">
+  <p>
+    Runs entirely in your browser with Canvas and WebAssembly-free encoders built into the platform. No tracking, no analytics, no server.
+    <a href="https://github.com/horiastanxd/imgshrink">Source on GitHub</a>.
+  </p>
+</footer>
+
+<script src="zip.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
